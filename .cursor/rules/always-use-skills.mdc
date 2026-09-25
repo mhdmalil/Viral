@@ -1,0 +1,22 @@
+---
+description: Always load relevant project skills without the user asking
+alwaysApply: true
+---
+
+# Always use relevant skills
+
+On every task, load the relevant skills from `.cursor/skills/` without the user naming them.
+
+1. Follow `AGENTS.md` (Understand → Map → Plan → Protect → Build → Optimize → Test → Visually verify → Review → Document).
+2. Load only skills that apply. Never dump all 21.
+3. When touching shipped code, always load `project-architecture`, `integration-protection`, and `code-review`.
+4. This repo is a **local-first FastAPI + React Windows app** (ViralClipper). Do **not** apply the Shopify section of `platform-expert` or Cursor Shopify plugin skills.
+5. Ignore `seo` and `3d-web` unless the user explicitly asks.
+
+Skill map:
+- Features: `requirements-analysis`, `project-architecture`, `project-memory`
+- UI: `ui-ux`, `design-system`, `responsive`, `accessibility`, `visual-verification`
+- API / FFmpeg / Whisper / Ollama-Hermes HTTP: `api-integration`, `security`, `performance`
+- SQLite: `database`, `security`
+- Bugs: `debugging`, `testing-qa`
+- After meaningful change: `documentation`, `project-memory`
