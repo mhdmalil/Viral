@@ -8,7 +8,7 @@ from app.services.video.timeline import Piece, hook_until as open_until
 def build_cues(words_or_segments: list[dict[str, Any]], clip_start: float, clip_end: float) -> list[dict[str, Any]]:
     """Classic lower-third cues, times relative to the clip (0 = first frame)."""
     cues: list[dict[str, Any]] = []
-    buf: list[str] = []
+    buf: list[dict[str, Any]] = []
     cue_start: float | None = None
     cue_end = 0.0
     for item in words_or_segments:
@@ -24,15 +24,24 @@ def build_cues(words_or_segments: list[dict[str, Any]], clip_start: float, clip_
         rel_e = max(rel_s + 0.05, min(abs_end, clip_end) - clip_start)
         if cue_start is None:
             cue_start = rel_s
-        buf.append(text)
+        buf.append({"text": text, "start": rel_s, "end": rel_e})
         cue_end = rel_e
-        if len(buf) >= 4 or sum(len(part) for part in buf) >= 20 or (cue_end - cue_start) >= 1.4:
-            cues.append({"start": cue_start, "end": cue_end, "text": " ".join(buf)})
+        if len(buf) >= 4 or sum(len(part["text"]) for part in buf) >= 20 or (cue_end - cue_start) >= 1.4:
+            cues.append(_cue(cue_start, cue_end, buf))
             buf = []
             cue_start = None
     if buf and cue_start is not None:
-        cues.append({"start": cue_start, "end": max(cue_end, cue_start + 0.4), "text": " ".join(buf)})
+        cues.append(_cue(cue_start, max(cue_end, cue_start + 0.4), buf))
     return cues
+
+
+def _cue(start: float, end: float, words: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "start": start,
+        "end": end,
+        "text": " ".join(str(word["text"]) for word in words),
+        "words": words,
+    }
 
 
 def build_cues_on_timeline(
@@ -48,11 +57,21 @@ def build_cues_on_timeline(
     cues: list[dict[str, Any]] = []
     for piece in windows:
         for cue in build_cues(words_or_segments, piece.src_start, piece.src_end):
+            shifted = []
+            for word in cue.get("words") or []:
+                shifted.append(
+                    {
+                        "text": word["text"],
+                        "start": piece.out_start + float(word["start"]),
+                        "end": piece.out_start + float(word["end"]),
+                    }
+                )
             cues.append(
                 {
                     "start": piece.out_start + float(cue["start"]),
                     "end": piece.out_start + float(cue["end"]),
                     "text": cue["text"],
+                    "words": shifted,
                 }
             )
     cues.sort(key=lambda row: row["start"])
@@ -67,14 +86,21 @@ def build_cues_on_timeline(
     return cues
 
 
-def _punch_last_word(text: str) -> str:
-    parts = str(text).replace("\n", " ").strip().split()
-    if not parts:
-        return ""
-    safe = [part.replace("\\", r"\\") for part in parts]
-    if len(safe) < 2:
-        return safe[0]
-    return " ".join(safe[:-1]) + r" {\c&H0000FFFF&\3c&H00000000&\bord3}" + safe[-1]
+def _ass_word(token: str) -> str:
+    return str(token).replace("\\", r"\\").replace("{", r"\{").replace("}", r"\}")
+
+
+def _spoken_line(words: list[dict[str, Any]], active: int) -> str:
+    parts: list[str] = []
+    for index, word in enumerate(words):
+        token = _ass_word(str(word.get("text") or ""))
+        if not token:
+            continue
+        if index == active:
+            parts.append(r"{\c&H0000FFFF&}" + token + r"{\c&H00FFFFFF&}")
+        else:
+            parts.append(token)
+    return " ".join(parts)
 
 
 def cues_to_ass(
@@ -111,11 +137,20 @@ def cues_to_ass(
     )
     lines = [header.rstrip("\n")]
     for cue in cues:
+        spoken = cue.get("words") if isinstance(cue.get("words"), list) else None
+        if spoken:
+            for index, word in enumerate(spoken):
+                text = _spoken_line(spoken, index)
+                if not text:
+                    continue
+                lines.append(
+                    f"Dialogue: 0,{_ass_ts(word['start'])},{_ass_ts(word['end'])},Default,,0,0,0,,{text}"
+                )
+            continue
         raw = str(cue["text"]).replace("\n", " ").strip()
-        if punch:
-            text = _punch_last_word(raw)
-        else:
-            text = raw.replace("\\", r"\\")
+        text = _spoken_line([{"text": part} for part in raw.split()], max(0, len(raw.split()) - 1)) if punch and raw else raw.replace("\\", r"\\")
+        if not text:
+            continue
         lines.append(
             f"Dialogue: 0,{_ass_ts(cue['start'])},{_ass_ts(cue['end'])},Default,,0,0,0,,{text}"
         )

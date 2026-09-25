@@ -13,10 +13,10 @@ VIDEO_AREA_H = CANVAS_H - TOP_BAR_H  # 1808
 TOP_SAFE_Y = 150
 BOTTOM_UI_SAFE = 420
 
-HOOK_FONT = 88
-HOOK_FONT_MIN = 42
+HOOK_FONT = 112
+HOOK_FONT_MIN = 56
 HOOK_BOX = 16
-HOOK_Y = 252
+HOOK_Y = 360
 HOOK_MAX_W = 1020
 HOOK_CHAR_W = 0.58
 CAPTION_PX = 52
@@ -115,7 +115,7 @@ def social_x(video: FittedVideo) -> int:
 def social_placement(video: FittedVideo, index: int, icon: int = SOCIAL_ICON) -> tuple[int, int] | None:
     """Left stack on the fitted picture, below the hook, clamped to TikTok bottom UI."""
     size = max(32, int(icon))
-    below_hook = HOOK_Y + HOOK_FONT + HOOK_BOX + SOCIAL_BELOW_HOOK
+    below_hook = HOOK_Y + (2 * (HOOK_FONT + 8)) + SOCIAL_BELOW_HOOK
     first_y = max(TOP_SAFE_Y, int(video.y) + SOCIAL_FROM_VIDEO_TOP, below_hook)
     y = first_y + int(index) * (size + SOCIAL_GAP)
     limit = int(video.bottom) - BOTTOM_UI_SAFE
@@ -155,7 +155,8 @@ def vertical_canvas_vf(crop: tuple[int, int, int, int] | None = None) -> str:
     return (
         f"scale={CANVAS_W}:{VIDEO_AREA_H}:force_original_aspect_ratio=decrease,"
         f"pad={CANVAS_W}:{VIDEO_AREA_H}:(ow-iw)/2:(oh-ih)/2:black,"
-        f"pad={CANVAS_W}:{CANVAS_H}:0:{TOP_BAR_H}:black"
+        f"pad={CANVAS_W}:{CANVAS_H}:0:{TOP_BAR_H}:black,"
+        "eq=contrast=1.06:saturation=1.08:gamma=0.98"
     )
 
 
@@ -226,11 +227,26 @@ def hook_font_size(line: str) -> int:
 
 
 def hook_layout(text: str) -> tuple[list[str], int]:
-    """Always one line; shrink only enough to stay inside the 1080 frame."""
+    """One line when it can stay large. Longer teases split in two so the type does not shrink away."""
     cleaned = " ".join(str(text or "").split())
     if not cleaned:
         return [], HOOK_FONT
-    return [cleaned], hook_font_size(cleaned)
+    one = hook_font_size(cleaned)
+    if one >= 78:
+        return [cleaned], one
+    words = cleaned.split()
+    if len(words) < 2:
+        return [cleaned], one
+    split_at = 1
+    best = 10**9
+    for index in range(1, len(words)):
+        longer = max(len(" ".join(words[:index])), len(" ".join(words[index:])))
+        if longer < best:
+            best = longer
+            split_at = index
+    lines = [" ".join(words[:split_at]), " ".join(words[split_at:])]
+    size = min(hook_font_size(line) for line in lines)
+    return lines, max(HOOK_FONT_MIN, min(HOOK_FONT, size))
 
 
 def windows_font(bold: bool = True) -> Path | None:

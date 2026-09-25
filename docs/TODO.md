@@ -12,9 +12,9 @@
 - [x] Phase 10 — Desktop shortcut + Edge app window (not a packed .exe)
 
 ## Known Gaps / Risks Not Yet Addressed
-- [x] `python` not on PATH; use `py -3` (README + start commands)
-- [ ] Zoom / Ken Burns on the picture (deferred until look work is finished)
-- [ ] Music bed (deferred until look work is finished)
+- [x] Tight talking-head cuts: project edit note, drop ums/gaps in source order, cutaway from another shot in the same file, one grade. Music and zoom stay off.
+- [ ] Zoom / Ken Burns on the picture (not in this cut)
+- [ ] Music bed (not in this cut)
 - [ ] Pin `AI_MODEL` to one OpenRouter id if `openrouter/free` scores jump around
 - [ ] Hermes agent later for auto-post (not used for scoring)
 - [x] GTX 960 4GB: auto-reframe is CPU Haar (OpenCV), not GPU tracking. Whisper stays CPU.

@@ -1,5 +1,29 @@
 # Changelog
 
+### 2026-09-25
+- Changed: Hook type is larger and lower (y=360). Short lines stay one line. Long lines split in two so the type does not shrink. Health cut `8s-hook-down`.
+- Files: `layout.py`, `health.py`, `desktop_app.py`
+
+### 2026-09-25
+- Changed: Hook is white type with a black outline on the picture, no white box. Captions keep the phrase and turn the spoken word yellow. Health cut `8s-hook-type`.
+- Files: `ffmpeg.py`, `classic.py`, `health.py`, `desktop_app.py`
+
+### 2026-09-25
+- Fixed: Removing or replacing a project video deletes its clip files, transcripts, wavs, and candidate scripts, not only the database rows. Generate stops if that video is gone. Health cut `8s-erase-cuts`.
+- Files: `purge.py`, `import_video.py`, `runner.py`, `ProjectDetailPage.tsx`, `health.py`, `desktop_app.py`
+
+### 2026-09-25
+- Changed: Generate takes one project edit note, jump-cuts silence and filler inside the moment (source order), and may cover the picture for about a second with another shot from the same file. Captions follow the tight timeline. One contrast grade. No music, no zoom. Health cut `8s-tight-cut`.
+- Files: `timeline.py`, `runner.py`, `ffmpeg.py`, `layout.py`, `engine.py`, `prompts.py`, `normalize.py`, `ProjectDetailPage.tsx`, `health.py`, `desktop_app.py`
+
+### 2026-09-25
+- Changed: Agents open at most four skill files (shipped-code default is architecture + protection + review). No 22nd skill. `.cursorignore` drops desktop-profile, venvs, media, and MP4s from search.
+- Files: `always-use-skills.mdc`, `AGENTS.md`, `.cursorignore`
+
+### 2026-09-25
+- Changed: Separate Cursor workspaces — `Desktop\ViralClipper.code-workspace` and `Desktop\NeroCasa.code-workspace`. The combined two-folder workspace was removed. New Agent in a ViralClipper window loads this repo’s skills and `docs/`; it is not a subagent.
+- Files: `ViralClipper.code-workspace`, `NeroCasa.code-workspace`, `always-use-skills.mdc`, `PROJECT_CONTEXT.md`
+
 ### 2026-09-24
 - Fixed: Groq/Gemini/OpenRouter keys in project `.env` override a leftover Windows/process key, so a new key is used after a full restart. Health cut `8s-env-keys`.
 - Files: `config.py`, `health.py`, `desktop_app.py`

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import MEDIA_DIR, settings
 from app.models.entities import ActivityEvent, AnalysisRun, ApiUsageEvent, Clip, ClipTag, ProcessingJob, Project, SourceVideo
-from app.services.storage.paths import library_clips_dir, project_analysis_dir, project_clips_dir
+from app.services.storage.paths import library_clips_dir, project_analysis_dir, project_clips_dir, project_tree
 from app.services.storage.workspace import LIBRARY_VAULT_STATUS
 
 
@@ -99,6 +99,17 @@ def clear_analysis(project: Project, *, keep_hash: str | None = None) -> None:
         if keep and keep in path.name:
             continue
         path.unlink(missing_ok=True)
+
+
+def erase_project_cuts(project: Project) -> None:
+    """Delete clip files, transcripts, wavs, and candidate scripts for this project."""
+    roots = [project_tree(project)]
+    mirror = MEDIA_DIR / "accounts" / str(project.account_id) / "projects" / str(project.id)
+    if mirror not in roots and mirror.resolve() != roots[0].resolve():
+        roots.append(mirror)
+    for root in roots:
+        for sub in ("clips", "analysis", "downloads"):
+            _force_rmtree(root / sub)
 
 
 def clear_uploaded_media(db: Session) -> dict[str, int]:

@@ -1,22 +1,30 @@
 ---
-description: Always load relevant project skills without the user asking
+description: ViralClipper skills — few files, not all 21
 alwaysApply: true
 ---
 
-# Always use relevant skills
+# Skills (token budget)
 
-On every task, load the relevant skills from `.cursor/skills/` without the user naming them.
+This window is **ViralClipper only**. New Agent here is a new chat on this repo, not a subagent, not NeroCasa.
 
-1. Follow `AGENTS.md` (Understand → Map → Plan → Protect → Build → Optimize → Test → Visually verify → Review → Document).
-2. Load only skills that apply. Never dump all 21.
-3. When touching shipped code, always load `project-architecture`, `integration-protection`, and `code-review`.
-4. This repo is a **local-first FastAPI + React Windows app** (ViralClipper). Do **not** apply the Shopify section of `platform-expert` or Cursor Shopify plugin skills.
-5. Ignore `seo` and `3d-web` unless the user explicitly asks.
+Follow `AGENTS.md` workflow. **Do not Read all 21 `SKILL.md` files.** Use this map. Open at most **4** skill files per task (usually 2–3). Prefer `docs/` over re-reading skills.
 
-Skill map:
-- Features: `requirements-analysis`, `project-architecture`, `project-memory`
-- UI: `ui-ux`, `design-system`, `responsive`, `accessibility`, `visual-verification`
-- API / FFmpeg / Whisper / Ollama-Hermes HTTP: `api-integration`, `security`, `performance`
-- SQLite: `database`, `security`
-- Bugs: `debugging`, `testing-qa`
-- After meaningful change: `documentation`, `project-memory`
+**Shipped-code default (count as 3):** `project-architecture`, `integration-protection`, `code-review`.
+
+**Add at most one more from the job:**
+
+| Job | Extra skill (optional) |
+|---|---|
+| New feature / scope | `requirements-analysis` |
+| UI | `ui-ux` or `design-system` (not both unless layout + tokens) |
+| Render / verify UI | `visual-verification` |
+| API / FFmpeg / Whisper / Groq | `api-integration` |
+| SQLite | `database` |
+| Bug | `debugging` |
+| After a real change | `documentation` + `project-memory` (docs only; skip if you already have the 3) |
+
+**Never open unless the user asks:** `seo`, `3d-web`, Shopify plugins, Docs Canvas, PR Review Canvas, `deploy-with-vercel`. Skip `motion-design` unless adding animation.
+
+**Do not** search or read `data/desktop-profile/`, `node_modules/`, `.venv/`, `.venv-whisper/`, `media/`, clip MP4s, or `.env` values.
+
+Grep / small file slices. New Agent when the topic changes.

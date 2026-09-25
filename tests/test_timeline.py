@@ -12,6 +12,37 @@ def _src(pieces) -> list[tuple[float, float]]:
     return [piece.as_tuple() for piece in pieces]
 
 
+def test_tighten_drops_a_long_gap_and_stays_in_order() -> None:
+    from app.services.video.timeline import pick_cutaway, tighten_pieces
+
+    words = [
+        {"start": 0.0, "end": 2.0, "word": "hello"},
+        {"start": 2.1, "end": 4.0, "word": "there"},
+        {"start": 6.2, "end": 10.0, "word": "payoff"},
+        {"start": 10.0, "end": 14.0, "word": "lands"},
+    ]
+    pieces = tighten_pieces(words, 0.0, 14.0)
+    assert _src(pieces)[0][0] == 0.0
+    assert _src(pieces)[0][1] < 5
+    assert _src(pieces)[-1][0] >= 6
+    assert _src(pieces)[0][0] < _src(pieces)[-1][0]
+
+
+def test_tighten_keeps_the_full_span_when_the_tight_cut_is_under_8s() -> None:
+    from app.services.video.timeline import tighten_pieces
+
+    words = [{"start": 0.0, "end": 1.0, "word": "hi"}, {"start": 5.0, "end": 6.0, "word": "bye"}]
+    assert _src(tighten_pieces(words, 0.0, 6.0)) == [(0.0, 6.0)]
+
+
+def test_pick_cutaway_uses_another_shot_in_the_same_file() -> None:
+    from app.services.video.timeline import pick_cutaway
+
+    span = pick_cutaway([1.0, 3.0, 30.0, 34.0], 0.0, 10.0, 40.0)
+    assert span is not None
+    assert span[0] >= 30.0
+
+
 def test_clip_starts_on_the_hook_and_plays_forward() -> None:
     pieces = hook_first_pieces(8.0, 20.0, 12.0)
     assert _src(pieces) == [(12.0, 20.0)]
@@ -67,5 +98,6 @@ def test_captions_cover_speech_and_punch_the_last_word() -> None:
     assert "PlayResX: 1080" in ass
     assert "PlayResY: 1920" in ass
     assert "Arial,52," in ass
-    assert r"{\c&H0000FFFF&" in ass
-    assert r"\bord3" in ass
+    assert r"{\c&H0000FFFF&}wait" in ass
+    assert r"{\c&H0000FFFF&}what" in ass
+    assert r"{\c&H00FFFFFF&}" in ass

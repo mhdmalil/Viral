@@ -155,3 +155,21 @@ def test_workbench_hides_old_clips_without_source_hash() -> None:
     assert workbench_allows_clip(clip, "other") is False
     bare = Clip(title="bare", status="ready", viral_signals="{}")
     assert workbench_allows_clip(bare, "abc") is False
+
+
+def test_erase_project_cuts_deletes_transcripts_and_clips(tmp_path: Path) -> None:
+    from app.services.storage.purge import erase_project_cuts
+
+    folder = tmp_path / "proj"
+    analysis = folder / "analysis"
+    clips = folder / "clips"
+    analysis.mkdir(parents=True)
+    clips.mkdir(parents=True)
+    (analysis / "transcript_old.json").write_text("old", encoding="utf-8")
+    (analysis / "audio_old_0.wav").write_bytes(b"wav")
+    (clips / "01 - old.mp4").write_bytes(b"mp4")
+    project = Project(account_id=999999, name="Erase", folder_path=str(folder), status="draft")
+    project.id = 999999
+    erase_project_cuts(project)
+    assert not analysis.exists()
+    assert not clips.exists()

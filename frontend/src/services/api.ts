@@ -107,6 +107,7 @@ export const api = {
         custom_name?: string;
         footer?: "socials" | "picture";
         vibes?: string[];
+        brief?: string;
       };
     },
   ) =>

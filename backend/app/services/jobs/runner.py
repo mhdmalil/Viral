@@ -16,12 +16,15 @@ from app.services.captions.classic import build_cues_on_timeline, cues_to_ass
 from app.services.ai.usage import begin_usage, end_usage
 from app.services.jobs.control import JobCancelled, begin_job, end_job, raise_if_cancelled
 from app.services.storage.import_video import _drop_other_sources, hide_current_project_clips
+from app.services.storage.purge import erase_project_cuts
 from app.services.video.ffmpeg import (
     VideoProcessingError,
     extract_wav_range,
     has_audio_stream,
+    overlay_cutaway,
     probe_video,
     render_vertical_clip,
+    scene_times,
     sha256_file,
 )
 from app.services.storage.paths import (
@@ -44,7 +47,13 @@ from app.services.video.layout import (
     fit_source,
     social_placement,
 )
-from app.services.video.timeline import hook_first_pieces, output_duration, resolve_hook_at
+from app.services.video.timeline import (
+    hook_first_pieces,
+    output_duration,
+    pick_cutaway,
+    resolve_hook_at,
+    tighten_pieces,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -210,6 +219,7 @@ def run_generate_job(job_id: int) -> None:
         begin_usage(job_id=job_id, project_id=project.id)
 
         hide_current_project_clips(db, project)
+        erase_project_cuts(project)
         db.commit()
 
         if not project.folder_path:
@@ -318,13 +328,15 @@ def run_generate_job(job_id: int) -> None:
         db.commit()
 
         raise_if_cancelled(job_id)
+        branding = parse_branding(getattr(project, "branding_json", None))
         try:
             selected, artifacts = run_editorial(
                 payload,
                 provider=get_ai_provider(),
                 video_duration=video_duration,
                 user_max=user_max,
-                wanted_vibes=parse_branding(getattr(project, "branding_json", None)).get("vibes") or [],
+                wanted_vibes=branding.get("vibes") or [],
+                brief=str(branding.get("brief") or ""),
                 on_progress=on_progress,
             )
         except AIProviderError as exc:
@@ -369,12 +381,15 @@ def run_generate_job(job_id: int) -> None:
         )
         caption_mv = caption_margin_v()
         overlays = _branding_overlays(project, project_branding_dir(project) / "icons", video)
+        scenes = scene_times(media)
         rendered = 0
         for index, row in enumerate(selected, start=1):
             job.stage_message = f"Clipping {index}/{len(selected)}"
             job.progress = min(99, 90 + int(8 * index / len(selected)))
             db.commit()
             raise_if_cancelled(job_id)
+            if db.get(SourceVideo, source.id) is None:
+                raise JobCancelled()
             signals = row.get("signals") or {}
             start = float(row["start"])
             end = float(row["end"])
@@ -392,7 +407,11 @@ def run_generate_job(job_id: int) -> None:
             row = {**row, "start": grown["start"], "end": grown["end"]}
             if float(row["end"]) - float(row["start"]) < CLIP_MIN_SECONDS - 0.05:
                 continue
-            pieces = hook_first_pieces(row["start"], row["end"], None)
+            pieces = tighten_pieces(words, float(row["start"]), float(row["end"]))
+            if not pieces:
+                pieces = hook_first_pieces(row["start"], row["end"], None)
+            spans = [piece.as_tuple() for piece in pieces]
+            cutaway = pick_cutaway(scenes, float(row["start"]), float(row["end"]), float(video_duration or 0))
             hook_line = extract_hook_line(
                 words,
                 row["start"],
@@ -442,16 +461,21 @@ def run_generate_job(job_id: int) -> None:
                 render_vertical_clip(
                     media,
                     dest,
-                    start=row["start"],
-                    end=row["end"],
+                    start=spans[0][0],
+                    end=spans[-1][1] if len(spans) == 1 else spans[0][1],
                     srt_path=ass_path if cues else None,
                     has_audio=audio_ok,
                     crop=None,
                     hook_line=hook_line,
                     hook_file=hook_file,
                     overlays=overlays,
-                    pieces=None,
+                    pieces=spans if len(spans) > 1 else None,
                 )
+                if cutaway is not None:
+                    try:
+                        overlay_cutaway(dest, media, cutaway, video)
+                    except VideoProcessingError:
+                        logger.info("Cutaway skipped for clip %s", clip.id)
                 clip.file_path = str(dest)
                 clip.status = "ready"
                 rendered += 1
@@ -475,7 +499,11 @@ def run_generate_job(job_id: int) -> None:
             job.error_message = "Generate was stopped."
             job.progress = 0
             project = db.get(Project, job.project_id)
-            if project is not None and project.status == "processing":
+            if project is not None and db.scalar(select(SourceVideo.id).where(SourceVideo.project_id == project.id)) is None:
+                hide_current_project_clips(db, project)
+                erase_project_cuts(project)
+                project.status = "draft"
+            elif project is not None and project.status == "processing":
                 project.status = "draft"
             db.commit()
     except Exception:

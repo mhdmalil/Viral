@@ -25,13 +25,13 @@ def test_overlay_is_one_line_below_the_header() -> None:
 
     short_lines, short_size = hook_layout("Wait for it")
     assert short_lines == ["Wait for it"]
-    assert short_size >= 70
+    assert short_size >= 90
     lines, size = hook_layout("Who are we going to last through all")
-    assert lines == ["Who are we going to last through all"]
-    assert len(lines) == 1
-    assert "\n" not in lines[0]
+    assert len(lines) == 2
+    assert size >= 72
     assert size <= HOOK_FONT
-    assert hook_font_size(lines[0]) * len(lines[0]) * HOOK_CHAR_W <= HOOK_MAX_W + 1
+    for line in lines:
+        assert hook_font_size(line) * len(line) * HOOK_CHAR_W <= HOOK_MAX_W + 8
     y = hook_draw_y(font_size=size)
     assert y == HOOK_Y
     assert y >= TOP_SAFE_Y

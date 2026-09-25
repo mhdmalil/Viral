@@ -14,6 +14,7 @@
 - **Build/dev tooling:** Uvicorn, Vite; Node v22.18.0
 - **Hosting / deployment target:** Local loopback only (`127.0.0.1`). Desktop shortcut opens Edge app mode at `http://127.0.0.1:8000`.
 - **Repository layout notes:** App code under `backend/` and `frontend/`. Agent OS in `AGENTS.md` + `.cursor/`. SQLite and media under `data/` and `media/`.
+- **Cursor workspace:** Open `Desktop\ViralClipper.code-workspace` (this folder only). NeroCasa has its own `Desktop\NeroCasa.code-workspace`. File → New Agent uses whichever workspace is open; it does not copy old chats. Persistence is `docs/` + skills, not a subagent.
 
 ### Environment inspection (2026-09-20)
 | Tool | Result |

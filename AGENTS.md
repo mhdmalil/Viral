@@ -1,8 +1,9 @@
 # AGENTS.md — Master Agent Instructions
 
 This file is the entry point for any AI coding agent (Cursor Agent, etc.) working in this
-repository. Read this file in full before doing any non-trivial work. Then read the skills
-under `.cursor/skills/` that are relevant to the task, and the project memory under `docs/`.
+repository. Read this file in full before doing any non-trivial work. Then open **at most four**
+`.cursor/skills/*/SKILL.md` files that match the task (see `.cursor/rules/always-use-skills.mdc`).
+Read `docs/` for project memory. Never open all 21 skill files.
 
 This system is **portable and stack-agnostic**. It was not written for one specific project.
 It adapts itself to whatever codebase it is installed into by inspecting the project first and
@@ -11,8 +12,8 @@ a local-first FastAPI + React Windows app (not a Shopify theme). The same rules 
 still apply — only the platform-specific notes inside `platform-expert` and the contents of
 `docs/` change.
 
-**Skill loading is mandatory.** On every task, load the relevant `.cursor/skills/` files
-without the user asking. Never wait for "use your skills." Ignore Shopify plugin skills.
+**Skill loading is mandatory but narrow.** Follow the always-apply skill map without waiting
+for "use your skills." Open only the 2–4 `SKILL.md` files that apply. Ignore Shopify plugins.
 
 ---
 
@@ -170,9 +171,9 @@ Files:
 
 ## 6. Skills Index
 
-All skills live in `.cursor/skills/<skill-name>/SKILL.md`. Load the ones relevant to the current
-task; you don't need to load all 21 for a small change, but always load `project-architecture`,
-`integration-protection`, and `code-review` for anything that touches shipped functionality.
+All skills live in `.cursor/skills/<skill-name>/SKILL.md`. **Hard cap: 4 skill files per task.**
+For shipped code always include `project-architecture`, `integration-protection`, and
+`code-review` (that is already 3). Do not Read the others “just in case.”
 
 | Skill | Use for |
 |---|---|

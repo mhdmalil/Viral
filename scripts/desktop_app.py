@@ -19,7 +19,7 @@ DIST_INDEX = ROOT / "frontend" / "dist" / "index.html"
 HOST = "127.0.0.1"
 PORT = 8000
 URL = f"http://{HOST}:{PORT}/"
-CUT = "8s-env-keys"
+CUT = "8s-hook-down"
 
 
 def _popup(title: str, text: str) -> None:

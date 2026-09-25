@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import shutil
 import subprocess
 import tempfile
@@ -232,21 +233,25 @@ def _hook_chain(
     del content_top
     lines, size = hook_layout(hook_line)
     font_bit = f":fontfile='{_filter_path(hook_font)}'" if hook_font is not None else ""
-    y = hook_draw_y(font_size=size)
-    line = lines[0] if lines else hook_line
+    y0 = hook_draw_y(font_size=size)
+    shown = lines or [hook_line]
     if hook_file is not None:
-        hook_file.write_text(line, encoding="utf-8")
-    safe = line.replace("\\", "\\\\").replace(":", r"\:").replace("'", "")
+        hook_file.write_text(" ".join(shown), encoding="utf-8")
     enable = ""
     if hook_until is not None and hook_until > 0:
         enable = f":enable=lte(t\\,{float(hook_until):.3f})"
-    return (
-        f",drawtext=text='{safe}'{font_bit}"
-        f":fontsize={size}:fontcolor=black"
-        f":box=1:boxcolor=white:boxborderw=18"
-        f":expansion=none"
-        f":x=(w-text_w)/2:y={y}{enable}"
-    )
+    parts: list[str] = []
+    for index, line in enumerate(shown):
+        safe = line.replace("\\", "\\\\").replace(":", r"\:").replace("'", "")
+        y = y0 + index * (size + 10)
+        parts.append(
+            f",drawtext=text='{safe}'{font_bit}"
+            f":fontsize={size}:fontcolor=white"
+            f":borderw=6:bordercolor=black"
+            f":expansion=none"
+            f":x=(w-text_w)/2:y={y}{enable}"
+        )
+    return "".join(parts)
 
 
 def _overlay_parts(
@@ -334,6 +339,93 @@ def _slice_letterbox(
     if not dest.exists() or dest.stat().st_size == 0:
         raise VideoProcessingError("Clip slice was not created.")
     return dest
+
+
+def scene_times(source: Path, *, limit: int = 24) -> list[float]:
+    """Timestamps where the picture changes. Empty if ffmpeg cannot scan."""
+    cmd = [
+        "ffmpeg",
+        "-i",
+        str(source),
+        "-vf",
+        "select='gt(scene,0.35)',showinfo",
+        "-an",
+        "-f",
+        "null",
+        "-",
+    ]
+    try:
+        proc = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=180)
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    found: list[float] = []
+    for match in re.finditer(r"pts_time:([0-9.]+)", proc.stderr or ""):
+        try:
+            found.append(float(match.group(1)))
+        except ValueError:
+            continue
+        if len(found) >= limit:
+            break
+    return found
+
+
+def overlay_cutaway(canvas: Path, source: Path, span: tuple[float, float], fitted: Any) -> None:
+    """Cover the picture for ~1s with another shot from the same file. Hook and captions stay."""
+    start, end = float(span[0]), float(span[1])
+    if end - start < 0.5 or not canvas.is_file():
+        return
+    info = probe_video(canvas)
+    duration = float(info.get("duration_seconds") or 0)
+    if duration < 10:
+        return
+    show = min(1.2, end - start, duration - 2.0)
+    t0 = duration * 0.42
+    t1 = t0 + show
+    from app.services.video.layout import vertical_canvas_vf
+
+    tmp = canvas.with_name(canvas.stem + "_cutaway.mp4")
+    vf = vertical_canvas_vf(None)
+    crop = f"crop={int(fitted.w)}:{int(fitted.h)}:{int(fitted.x)}:{int(fitted.y)}"
+    graph = (
+        f"[1:v]{vf},{crop}[cut];"
+        f"[0:v][cut]overlay={int(fitted.x)}:{int(fitted.y)}:enable='between(t,{t0:.3f},{t1:.3f})'[v]"
+    )
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        str(canvas),
+        "-ss",
+        f"{start:.3f}",
+        "-t",
+        f"{show:.3f}",
+        "-i",
+        str(source),
+        "-filter_complex",
+        graph,
+        "-map",
+        "[v]",
+        "-map",
+        "0:a?",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "23",
+        "-c:a",
+        "copy",
+        "-pix_fmt",
+        "yuv420p",
+        "-movflags",
+        "+faststart",
+        str(tmp),
+    ]
+    _run(cmd, timeout=600)
+    if not tmp.is_file() or tmp.stat().st_size == 0:
+        tmp.unlink(missing_ok=True)
+        raise VideoProcessingError("Cutaway was not created.")
+    tmp.replace(canvas)
 
 
 def _concat_copies(parts: list[Path], dest: Path, timeout: int) -> Path:

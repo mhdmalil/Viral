@@ -36,6 +36,7 @@ def parse_branding(raw: str | None) -> dict[str, Any]:
         "custom_logo_path": custom_logo_path or None,
         "footer": footer,
         "vibes": normalize_vibes(data.get("vibes")),
+        "brief": " ".join(str(data.get("brief") or "").split())[:280],
     }
 
 

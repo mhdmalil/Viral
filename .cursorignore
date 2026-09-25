@@ -1,0 +1,11 @@
+﻿data/desktop-profile/
+frontend/node_modules/
+backend/.venv/
+backend/.venv-whisper/
+media/
+projects/
+**/*.mp4
+**/*.db
+**/*.db-journal
+logs/
+cache/

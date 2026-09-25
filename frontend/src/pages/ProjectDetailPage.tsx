@@ -130,6 +130,7 @@ export function ProjectDetailPage() {
   const [customLogoUrl, setCustomLogoUrl] = useState<string | null>(null);
   const [footerMode, setFooterMode] = useState<"socials" | "picture">("socials");
   const [wantedVibes, setWantedVibes] = useState<string[]>([]);
+  const [brief, setBrief] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -161,6 +162,7 @@ export function ProjectDetailPage() {
     setCustomLogoUrl(p.custom_logo_url || null);
     setFooterMode(p.branding?.footer === "picture" ? "picture" : "socials");
     setWantedVibes(p.branding?.vibes || []);
+    setBrief(p.branding?.brief || "");
     setLoaded(true);
   }, [id]);
 
@@ -204,7 +206,7 @@ export function ProjectDetailPage() {
   }
 
   async function removeSource(source: SourceVideo) {
-    const ok = window.confirm("Remove this video?");
+    const ok = window.confirm("Remove this video and every clip made from it?");
     if (!ok) return;
     setBusy(true);
     setError(null);
@@ -265,6 +267,7 @@ export function ProjectDetailPage() {
           custom_name: customName.trim(),
           footer: footerMode,
           vibes: wantedVibes,
+          brief: brief.trim(),
         },
       });
       const started = await api.generate(id);
@@ -458,6 +461,15 @@ export function ProjectDetailPage() {
                   </option>
                 ))}
               </select>
+            </label>
+            <label>
+              Edit note
+              <input
+                value={brief}
+                maxLength={280}
+                placeholder="fast, funny, start on the money, cut the ums"
+                onChange={(e) => setBrief(e.target.value)}
+              />
             </label>
             <button type="button" className="generate" onClick={() => void saveAndGenerate()}>
               Generate

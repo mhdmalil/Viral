@@ -153,6 +153,7 @@ def run_editorial(
     video_duration: float | None,
     user_max: int | None,
     wanted_vibes: list[str] | None = None,
+    brief: str | None = None,
     on_progress: ProgressFn | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     def progress(status: str, message: str, value: int) -> None:
@@ -176,6 +177,7 @@ def run_editorial(
 
     count_max = _max_fields(user_max)
     wanted = normalize_vibes(wanted_vibes)
+    note = " ".join(str(brief or "").split())[:280]
 
     seeds: list[dict[str, Any]] = []
     pass1_windows: list[dict[str, Any]] = []
@@ -208,6 +210,7 @@ def run_editorial(
                     "context_segments": packed["context_segments"],
                     "has_speech": packed["has_speech"],
                     "wanted_vibes": wanted,
+                    "brief": note,
                 },
             )
         except AIProviderError:
@@ -303,7 +306,7 @@ def run_editorial(
                 }
             )
         try:
-            data = provider.editor_json(PASS2_SYSTEM, {"pass": "expand", "wanted_vibes": wanted, "items": items})
+            data = provider.editor_json(PASS2_SYSTEM, {"pass": "expand", "wanted_vibes": wanted, "brief": note, "items": items})
         except AIProviderError:
             logger.info("Expand batch %s skipped; keeping seed bounds", batch_i)
             data = {}
@@ -372,7 +375,7 @@ def run_editorial(
             for row in batch
         ]
         try:
-            data = provider.editor_json(PASS4_SYSTEM, {"pass": "validate", "wanted_vibes": wanted, "items": items})
+            data = provider.editor_json(PASS4_SYSTEM, {"pass": "validate", "wanted_vibes": wanted, "brief": note, "items": items})
         except AIProviderError:
             logger.info("Validate batch %s skipped; using discovery scores", batch_i)
             data = {}
@@ -462,7 +465,7 @@ def run_editorial(
     ]
     keep_ids: set[str] | None = None
     try:
-        data = provider.editor_json(PASS5_SYSTEM, {"pass": "select", **count_max, "cards": cards, "wanted_vibes": wanted})
+        data = provider.editor_json(PASS5_SYSTEM, {"pass": "select", **count_max, "cards": cards, "wanted_vibes": wanted, "brief": note})
         raw_ids = data.get("keep_ids")
         if isinstance(raw_ids, list):
             keep_ids = {str(i) for i in raw_ids}

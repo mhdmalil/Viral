@@ -10,7 +10,7 @@ from app.services.storage.paths import (
     project_thumb_dir,
     safe_filename,
 )
-from app.services.storage.purge import clear_analysis, wipe_clips_matching_hash, wipe_project_clips
+from app.services.storage.purge import clear_analysis, erase_project_cuts, wipe_clips_matching_hash, wipe_project_clips
 from app.services.video.ffmpeg import (
     VideoProcessingError,
     copy_if_needed,
@@ -125,6 +125,7 @@ def delete_source_record(db: Session, record: SourceVideo) -> None:
     if project is not None:
         wipe_project_clips(db, project)
         wipe_clips_matching_hash(db, file_hash)
+        erase_project_cuts(project)
         clear_analysis(project)
     db.delete(record)
     db.flush()
@@ -154,7 +155,7 @@ def import_video_file(db: Session, project: Project, source_path: Path, original
             _drop_other_sources(db, project, existing_on_project.id)
             wipe_project_clips(db, project)
             wipe_clips_matching_hash(db, file_hash)
-            clear_analysis(project, keep_hash=file_hash)
+            erase_project_cuts(project)
             db.commit()
             db.refresh(existing_on_project)
             return existing_on_project, True
@@ -191,7 +192,7 @@ def import_video_file(db: Session, project: Project, source_path: Path, original
     _drop_other_sources(db, project, record.id)
     wipe_project_clips(db, project)
     wipe_clips_matching_hash(db, file_hash)
-    clear_analysis(project, keep_hash=file_hash)
+    erase_project_cuts(project)
     project.status = "ready"
     db.commit()
     db.refresh(record)

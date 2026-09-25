@@ -30,6 +30,7 @@ export type Project = {
     custom_logo_path?: string | null;
     footer?: "socials" | "picture";
     vibes?: string[];
+    brief?: string;
   };
   custom_logo_url?: string | null;
   created_at: string;
