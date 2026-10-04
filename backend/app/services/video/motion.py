@@ -30,14 +30,19 @@ def clamp_join(duration: float, left: float, right: float) -> float:
 
 
 def punch_in_chain(*, width: int = CANVAS_W, height: int = CANVAS_H) -> str:
-    """Slow crop-in over the first couple of seconds, then hold."""
-    grow = PUNCH_ZOOM - 1.0
+    """Slow zoom-in over the first couple of seconds, then hold.
+
+    crop w/h cannot use t (they are evaluated once). Scale the canvas per frame, then crop back.
+    """
+    grow = round(PUNCH_ZOOM - 1.0, 2)
     seconds = PUNCH_SECONDS
+    w = int(width)
+    h = int(height)
     return (
-        f",crop=w='trunc(iw/(1+{grow}*min(1\\,t/{seconds}))/2)*2'"
-        f":h='trunc(ih/(1+{grow}*min(1\\,t/{seconds}))/2)*2'"
-        f":x='(iw-ow)/2':y='(ih-oh)/2'"
-        f",scale={int(width)}:{int(height)}"
+        f",scale=w='trunc({w}*(1+{grow}*min(1\\,t/{seconds}))/2)*2'"
+        f":h='trunc({h}*(1+{grow}*min(1\\,t/{seconds}))/2)*2'"
+        f":eval=frame"
+        f",crop={w}:{h}:(in_w-{w})/2:(in_h-{h})/2"
     )
 
 

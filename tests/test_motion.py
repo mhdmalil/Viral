@@ -61,9 +61,9 @@ def test_short_pieces_skip_a_join() -> None:
 
 def test_punch_in_and_hook_title_are_animated() -> None:
     punch = punch_in_chain()
-    assert "crop=" in punch
-    assert "min(1\\,t/2.0)" in punch or "min(1\\,t/2)" in punch
-    assert "scale=1080:1920" in punch
+    assert "eval=frame" in punch
+    assert "min(1\\,t/2.0)" in punch
+    assert "crop=1080:1920" in punch
     y_expr, alpha = hook_title_motion(360)
     assert "if(lt(t" in y_expr
     assert "if(lt(t" in alpha

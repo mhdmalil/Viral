@@ -57,19 +57,35 @@ def test_ass_styles_are_white_outline_bottom() -> None:
 
 
 def test_render_vertical_clip_joins_pieces_with_motion(tmp_path: Path) -> None:
-    info = probe_video(FIXTURE)
-    end = max(0.4, float(info["duration_seconds"] or 0.4))
-    mid = max(0.15, end * 0.5)
+    import subprocess
+
+    source = tmp_path / "src.mp4"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=size=640x360:rate=25:duration=5",
+            "-pix_fmt",
+            "yuv420p",
+            str(source),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     dest = tmp_path / "joined.mp4"
     render_vertical_clip(
-        FIXTURE,
+        source,
         dest,
         start=0.0,
-        end=end,
-        has_audio=bool(info.get("has_audio")),
+        end=5.0,
+        has_audio=False,
         hook_line="Wait for this",
-        pieces=[(0.0, mid), (mid, end)],
-        hook_until=min(1.6, end),
+        pieces=[(0.0, 2.4), (2.4, 5.0)],
+        hook_until=1.6,
         crop=None,
         pad_min=False,
     )
@@ -77,6 +93,7 @@ def test_render_vertical_clip_joins_pieces_with_motion(tmp_path: Path) -> None:
     out = probe_video(dest)
     assert out["width"] == 1080
     assert out["height"] == 1920
+    assert float(out["duration_seconds"] or 0) > 4.0
 
 
 def test_render_vertical_clip_burns_ass(tmp_path: Path) -> None:
