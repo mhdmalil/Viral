@@ -42,7 +42,7 @@ n/a (not Shopify).
 ## External Services
 | Service | Purpose | Where configured | Notes |
 |---|---|---|---|
-| FFmpeg | Clip/render + per-chunk audio extract for Whisper | system PATH | 2-minute wav slices during generate; 9:16 letterbox; linear cut from hook; ASS captions |
+| FFmpeg | Clip/render + per-chunk audio extract for Whisper | system PATH | 2-minute wav slices during generate; 9:16 letterbox; linear cut from hook; xfade joins; punch-in; ASS captions |
 | OpenCV (headless) | Haar face detect for auto-reframe | `backend/.venv-whisper` + `scripts/haar_faces.py` | CPU only; app 3.13t venv has no wheel. Missing sidecar → center crop |
 | faster-whisper | Transcription | `WHISPER_MODEL`, `WHISPER_DEVICE` | Sidecar venv `backend/.venv-whisper` on CPython 3.12; CPU `tiny`; `condition_on_previous_text=False` |
 

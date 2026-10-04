@@ -12,8 +12,8 @@
 - [x] Phase 10 — Desktop shortcut + Edge app window (not a packed .exe)
 
 ## Known Gaps / Risks Not Yet Addressed
-- [x] Tight talking-head cuts: project edit note, drop ums/gaps in source order, cutaway from another shot in the same file, one grade. Music and zoom stay off.
-- [ ] Zoom / Ken Burns on the picture (not in this cut)
+- [x] Tight talking-head cuts: project edit note, drop ums/gaps in source order, cutaway from another shot in the same file, one grade. Music stays off.
+- [x] Piece fades / hook zoom join, punch-in on the hook picture, animated hook title, word-by-word captions. Face reframe stays unused.
 - [ ] Music bed (not in this cut)
 - [ ] Pin `AI_MODEL` to one OpenRouter id if `openrouter/free` scores jump around
 - [ ] Hermes agent later for auto-post (not used for scoring)

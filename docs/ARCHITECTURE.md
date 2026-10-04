@@ -22,7 +22,7 @@ ViralClipper/
 Account → Project → import video → job → transcribe → API AI candidates → threshold/rank ≤ N → FFmpeg + captions → project `clips/` folder. Deleting a source or project wipes that video, its clips, hook files, and analysis. Library lists remaining files only.
 
 **Inspected now:**
-Full Whisper transcript (cached per current `file_hash`) → Pass 1–6 → FFmpeg 1080×1920 canvas (112px hook bar + fit source into 1808px with black pad, no crop/stretch) + linear cut starting on `hook_at` + ASS captions at canvas MarginV 420 + socials stacked on the left of the fitted picture. Generate drops extra sources, verifies the file hash, and deletes previous cuts before cutting. Workbench `GET /clips?in_project=true` is empty without a current source and otherwise only lists matching `source_hash`. Clip records are created only after selection.
+Full Whisper transcript (cached per current `file_hash`) → Pass 1–6 → FFmpeg 1080×1920 canvas (112px hook bar + fit source into 1808px with black pad, no crop/stretch) + linear cut starting on `hook_at`. Inside that span, Generate drops a short um/uh and silence longer than about a second, and keeps shorter gaps. Multiple kept spans join with a short fade (`xfade`); a join that lands on the hook uses `zoomin`. The finished clip punches in over the first two seconds and slides/fades the hook title. ASS captions sit at canvas MarginV 420 and reveal words as they are spoken (current word yellow). Socials stack on the left of the fitted picture. Generate passes `crop=None` (Haar reframe stays unused). Generate drops extra sources, verifies the file hash, and deletes previous cuts before cutting. Workbench `GET /clips?in_project=true` is empty without a current source and otherwise only lists matching `source_hash`. Clip records are created only after selection.
 
 ```mermaid
 graph TD
@@ -39,7 +39,8 @@ graph TD
 | Account API | `backend/app/api/accounts.py` | Social-identity CRUD | Account model |
 | Project API | `backend/app/api/projects.py` | Projects under accounts | Project, Account |
 | Transcription | `backend/app/services/transcription/` | faster-whisper (CPU tiny) via 3.12 sidecar | FFmpeg wav extract |
-| Auto-reframe | `backend/app/services/video/reframe.py` | CPU Haar 9:16 crop via 3.12 sidecar; center fallback | FFmpeg, OpenCV in `.venv-whisper` |
+| Clip motion | `backend/app/services/video/motion.py` | Join fades / hook zoom, punch-in, hook-title fade | FFmpeg `xfade`, crop expressions |
+| Auto-reframe | `backend/app/services/video/reframe.py` | CPU Haar 9:16 crop via 3.12 sidecar; center fallback. Generate does not call it. | FFmpeg, OpenCV in `.venv-whisper` |
 | Viral AI | `backend/app/services/ai/chat.py` | OpenAI-compatible HTTP (`ChatAIProvider`); six-pass editor | Groq → Gemini → OpenRouter |
 | Job API | `backend/app/api/jobs.py` | Latest job + start generate | ProcessingJob, runner |
 | Usage API | `backend/app/api/usage.py` | Recorded Groq/Gemini/OpenRouter calls | `ApiUsageEvent`, `usage.py` |
@@ -57,5 +58,5 @@ graph TD
 
 ## Known Technical Debt
 - `python` command missing; scripts must use `py -3`
-- Haar reframe still exists for tests; Generate letterboxes with `crop=None`
+- Haar reframe still exists for tests; Generate letterboxes with `crop=None` and does not enable face crop
 - Branding TestClient collection can fail on some httpx/starlette versions (`app=` kwarg)

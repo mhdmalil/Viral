@@ -96,8 +96,10 @@ def _spoken_line(words: list[dict[str, Any]], active: int) -> str:
         token = _ass_word(str(word.get("text") or ""))
         if not token:
             continue
+        if index > active:
+            continue
         if index == active:
-            parts.append(r"{\c&H0000FFFF&}" + token + r"{\c&H00FFFFFF&}")
+            parts.append(r"{\c&H0000FFFF&\fscx108\fscy108}" + token + r"{\c&H00FFFFFF&\fscx100\fscy100}")
         else:
             parts.append(token)
     return " ".join(parts)
@@ -112,10 +114,9 @@ def cues_to_ass(
 ) -> str:
     from app.services.captions.styles import normalize_style
 
-    from app.services.video.layout import BOTTOM_UI_SAFE, CANVAS_H, CANVAS_W, CAPTION_MARGIN_LR, CAPTION_PX
+    from app.services.video.layout import BOTTOM_UI_SAFE, CANVAS_H, CANVAS_W
 
     kind = normalize_style(style)
-    _ = kind
     mv = max(8, min(800, int(margin_v if margin_v is not None else BOTTOM_UI_SAFE)))
     header = (
         "[Script Info]\n"
@@ -129,8 +130,7 @@ def cues_to_ass(
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, "
         "BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, "
         "BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
-        f"Style: Default,Arial,{CAPTION_PX},&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,"
-        f"100,100,0,0,1,3,0,2,{CAPTION_MARGIN_LR},{CAPTION_MARGIN_LR},{mv},1\n"
+        f"{_ass_style_line(kind, mv)}\n"
         "\n"
         "[Events]\n"
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
@@ -155,6 +155,25 @@ def cues_to_ass(
             f"Dialogue: 0,{_ass_ts(cue['start'])},{_ass_ts(cue['end'])},Default,,0,0,0,,{text}"
         )
     return "\n".join(lines) + "\n"
+
+
+def _ass_style_line(kind: str, mv: int) -> str:
+    from app.services.video.layout import CAPTION_MARGIN_LR, CAPTION_PX
+
+    if kind == "boxed":
+        return (
+            f"Style: Default,Arial,{CAPTION_PX},&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,"
+            f"100,100,0,0,3,4,0,2,{CAPTION_MARGIN_LR},{CAPTION_MARGIN_LR},{mv},1"
+        )
+    if kind == "bold":
+        return (
+            f"Style: Default,Arial,{CAPTION_PX},&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,"
+            f"100,100,0,0,1,5,1,2,{CAPTION_MARGIN_LR},{CAPTION_MARGIN_LR},{mv},1"
+        )
+    return (
+        f"Style: Default,Arial,{CAPTION_PX},&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,"
+        f"100,100,0,0,1,3,0,2,{CAPTION_MARGIN_LR},{CAPTION_MARGIN_LR},{mv},1"
+    )
 
 
 def _ass_ts(seconds: float) -> str:

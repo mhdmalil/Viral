@@ -1,5 +1,22 @@
 # Changelog
 
+### 2026-10-05
+- Changed: Timeline pieces fade together (zoom only into the hook). The hook picture punches in for two seconds and the hook title slides/fades in. Captions still use classic/bold/boxed and now reveal words as they are spoken. Face crop stays unused. Health cut `8s-edit-motion`.
+- Files: `motion.py`, `timeline.py`, `ffmpeg.py`, `classic.py`, `runner.py`, `health.py`, `desktop_app.py`, tests, docs
+
+### 2026-09-25
+- Changed: Generate, clip cards, the library list, and the API monitor use the same studio surface: phone-shaped clip previews, a sticky clip bar, and an accent usage chart.
+- Changed: The desktop UI is a light/dark studio. Warm paper in light, ink in dark, teal actions, cards with a soft shadow, and the project setup split so options sit beside socials. Theme is remembered in the browser. Generate, clips, and API behavior are unchanged.
+- Files: `tokens.css`, `app.css`, `AppLayout.tsx`, `index.html`, `ProjectDetailPage.tsx`, `ApiMonitor.tsx`, page heads
+
+### 2026-09-25
+- Fixed: Tight cuts only remove a short um/uh, or silence of about a second. A half-second gap stays, and each kept word keeps a tenth of a second of audio on each side. Hook lines drop a dangling last word such as "and". Health cut `8s-word-safe`.
+- Files: `timeline.py`, `layout.py`, `health.py`, `desktop_app.py`
+
+### 2026-09-25
+- Reverted: Groq Whisper transcription. Generate uses local faster-whisper again. Health cut `8s-hook-down`.
+- Files: `factory.py`, `config.py`, `health.py`, `desktop_app.py`
+
 ### 2026-09-25
 - Changed: Hook type is larger and lower (y=360). Short lines stay one line. Long lines split in two so the type does not shrink. Health cut `8s-hook-down`.
 - Files: `layout.py`, `health.py`, `desktop_app.py`

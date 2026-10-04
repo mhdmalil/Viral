@@ -16,6 +16,9 @@ class Piece:
     src_start: float
     src_end: float
     out_start: float
+    join: str | None = None
+    join_seconds: float = 0.0
+    joined: bool = False
 
     @property
     def duration(self) -> float:
@@ -85,7 +88,48 @@ def hook_first_pieces(start: float, end: float, hook_at: float | None) -> list[P
 
 
 def output_duration(pieces: list[Piece]) -> float:
-    return sum(piece.duration for piece in pieces)
+    if not pieces:
+        return 0.0
+    last = pieces[-1]
+    return last.out_start + last.duration
+
+
+def apply_piece_joins(pieces: list[Piece], *, hook_index: int = 0) -> list[Piece]:
+    """Shift output times so xfade overlaps stay in sync with captions."""
+    from app.services.video.motion import clamp_join, join_into
+
+    if not pieces:
+        return []
+    if len(pieces) == 1:
+        piece = pieces[0]
+        return [
+            Piece(piece.src_start, piece.src_end, 0.0, None, 0.0, True),
+        ]
+
+    out: list[Piece] = []
+    cursor = 0.0
+    for index, piece in enumerate(pieces):
+        name: str | None = None
+        held = 0.0
+        if index > 0:
+            name, raw = join_into(index == hook_index)
+            held = clamp_join(raw, pieces[index - 1].duration, piece.duration)
+            if held <= 0:
+                name = None
+            else:
+                cursor -= held
+        out.append(
+            Piece(
+                piece.src_start,
+                piece.src_end,
+                round(max(0.0, cursor), 3),
+                name,
+                held,
+                True,
+            )
+        )
+        cursor += piece.duration
+    return out
 
 
 def hook_until(pieces: list[Piece]) -> float:
@@ -97,7 +141,9 @@ def hook_until(pieces: list[Piece]) -> float:
 
 
 _FILLER = {"um", "uh", "er", "ah", "hmm", "hm", "umm", "uhh"}
-_GAP_SECONDS = 0.45
+_GAP_SECONDS = 1.0
+_WORD_PAD = 0.10
+_FILLER_MAX = 0.8
 
 
 def _word_token(item: dict[str, Any]) -> str:
@@ -112,7 +158,7 @@ def tighten_pieces(
     *,
     min_total: float = 8.0,
 ) -> list[Piece]:
-    """Drop filler and long gaps. Stay in source order. Keep the full span if the tight cut is under 8s."""
+    """Drop a short um/uh and silence of about a second. Keep shorter gaps. Stay in source order."""
     try:
         start = float(start)
         end = float(end)
@@ -120,27 +166,38 @@ def tighten_pieces(
         return []
     if not math.isfinite(start) or not math.isfinite(end) or end <= start:
         return []
-    spoken: list[tuple[float, float]] = []
+    spoken: list[tuple[float, float, bool]] = []
+    pending_cut = False
     for item in words:
         if not isinstance(item, dict):
             continue
         token = _word_token(item)
-        if not token or token in _FILLER:
-            continue
         try:
             word_start = float(item.get("start"))
             word_end = float(item.get("end"))
         except (TypeError, ValueError):
             continue
-        if word_end <= start or word_start >= end:
+        if word_end <= start or word_start >= end or word_end <= word_start:
             continue
-        spoken.append((max(start, word_start), min(end, word_end)))
+        if token in _FILLER and (word_end - word_start) <= _FILLER_MAX:
+            pending_cut = True
+            continue
+        if not token:
+            continue
+        left = max(start, word_start - _WORD_PAD)
+        right = min(end, word_end + _WORD_PAD)
+        spoken.append((left, right, pending_cut))
+        pending_cut = False
     if not spoken:
         return _pack([(start, end)])
     spans: list[tuple[float, float]] = []
-    cur_s, cur_e = spoken[0]
-    for word_start, word_end in spoken[1:]:
-        if word_start - cur_e > _GAP_SECONDS:
+    cur_s, cur_e = spoken[0][0], spoken[0][1]
+    for word_start, word_end, cut in spoken[1:]:
+        if cut and word_start < cur_e:
+            word_start = cur_e
+        if word_end <= word_start:
+            continue
+        if cut or word_start - cur_e > _GAP_SECONDS:
             spans.append((cur_s, cur_e))
             cur_s, cur_e = word_start, word_end
         else:

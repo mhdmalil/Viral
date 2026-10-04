@@ -233,6 +233,8 @@ def _hook_chain(
     del content_top
     lines, size = hook_layout(hook_line)
     font_bit = f":fontfile='{_filter_path(hook_font)}'" if hook_font is not None else ""
+    from app.services.video.motion import hook_title_motion
+
     y0 = hook_draw_y(font_size=size)
     shown = lines or [hook_line]
     if hook_file is not None:
@@ -244,12 +246,13 @@ def _hook_chain(
     for index, line in enumerate(shown):
         safe = line.replace("\\", "\\\\").replace(":", r"\:").replace("'", "")
         y = y0 + index * (size + 10)
+        y_expr, alpha = hook_title_motion(y)
         parts.append(
             f",drawtext=text='{safe}'{font_bit}"
             f":fontsize={size}:fontcolor=white"
             f":borderw=6:bordercolor=black"
             f":expansion=none"
-            f":x=(w-text_w)/2:y={y}{enable}"
+            f":x=(w-text_w)/2:y='{y_expr}':alpha='{alpha}'{enable}"
         )
     return "".join(parts)
 
@@ -428,6 +431,87 @@ def overlay_cutaway(canvas: Path, source: Path, span: tuple[float, float], fitte
     tmp.replace(canvas)
 
 
+def _concat_xfade(
+    parts: list[Path],
+    dest: Path,
+    pieces: list[Any],
+    *,
+    has_audio: bool,
+    timeout: int,
+) -> Path:
+    from app.services.video.motion import JOIN_MIN_S, xfade_offsets
+
+    if len(parts) != len(pieces):
+        raise VideoProcessingError("Could not join timeline pieces.")
+    steps = xfade_offsets(pieces)
+    if not steps:
+        return _concat_copies(parts, dest, timeout)
+
+    cmd = ["ffmpeg", "-y"]
+    for part in parts:
+        cmd.extend(["-i", str(part)])
+
+    graph: list[str] = []
+    for index in range(len(parts)):
+        graph.append(f"[{index}:v]fps=30,format=yuv420p,settb=AVTB[v{index}]")
+
+    last_v = "v0"
+    step_i = 0
+    for index in range(1, len(parts)):
+        held = float(pieces[index].join_seconds or 0.0)
+        nxt = f"vx{index}"
+        if held >= JOIN_MIN_S and step_i < len(steps):
+            name, duration, offset = steps[step_i]
+            step_i += 1
+            graph.append(
+                f"[{last_v}][v{index}]xfade=transition={name}:duration={duration:.3f}:offset={offset:.3f}[{nxt}]"
+            )
+        else:
+            graph.append(f"[{last_v}][v{index}]concat=n=2:v=1:a=0[{nxt}]")
+        last_v = nxt
+
+    last_a = ""
+    if has_audio:
+        graph.append("[0:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[a0]")
+        last_a = "a0"
+        for index in range(1, len(parts)):
+            held = float(pieces[index].join_seconds or 0.0)
+            graph.append(
+                f"[{index}:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[ar{index}]"
+            )
+            nxt = f"ax{index}"
+            if held >= JOIN_MIN_S:
+                graph.append(f"[{last_a}][ar{index}]acrossfade=d={held:.3f}[{nxt}]")
+            else:
+                graph.append(f"[{last_a}][ar{index}]concat=n=2:v=0:a=1[{nxt}]")
+            last_a = nxt
+
+    cmd.extend(["-filter_complex", ";".join(graph), "-map", f"[{last_v}]"])
+    if last_a:
+        cmd.extend(["-map", f"[{last_a}]", "-c:a", "aac", "-ac", "2", "-b:a", "128k", "-ar", "48000"])
+    else:
+        cmd.append("-an")
+    cmd.extend(
+        [
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-crf",
+            "23",
+            "-pix_fmt",
+            "yuv420p",
+            "-vsync",
+            "cfr",
+            str(dest),
+        ]
+    )
+    _run(cmd, timeout=timeout)
+    if not dest.exists() or dest.stat().st_size == 0:
+        raise VideoProcessingError("Could not join hook and body.")
+    return dest
+
+
 def _concat_copies(parts: list[Path], dest: Path, timeout: int) -> Path:
     list_path = dest.with_name(dest.stem + "_list.txt")
     lines = []
@@ -445,6 +529,20 @@ def _concat_copies(parts: list[Path], dest: Path, timeout: int) -> Path:
     if not dest.exists() or dest.stat().st_size == 0:
         raise VideoProcessingError("Could not join hook and body.")
     return dest
+
+
+def _as_joined_pieces(raw: list[Any] | None) -> list[Any]:
+    from app.services.video.timeline import Piece, apply_piece_joins, _pack
+
+    if not raw:
+        return []
+    first = raw[0]
+    if isinstance(first, Piece):
+        if first.joined:
+            return list(raw)
+        return apply_piece_joins(list(raw))
+    spans = [(float(a), float(b)) for a, b in raw if float(b) - float(a) >= 0.05]
+    return apply_piece_joins(_pack(spans))
 
 
 def render_vertical_clip(
@@ -470,7 +568,9 @@ def render_vertical_clip(
     dest.parent.mkdir(parents=True, exist_ok=True)
     from app.services.ai.editorial.bounds import CLIP_MIN_SECONDS
     from app.services.video.layout import fit_source, windows_font, windows_hook_font
+    from app.services.video.motion import punch_in_chain
     from app.services.video.reframe import vertical_vf
+    from app.services.video.timeline import output_duration
 
     _ = force_style
     info = probe_video(source)
@@ -479,7 +579,8 @@ def render_vertical_clip(
     fitted = fit_source(src_w, src_h)
     if picture_top is None:
         picture_top = fitted.y
-    spans = [(float(a), float(b)) for a, b in (pieces or []) if float(b) - float(a) >= 0.05]
+    timeline = _as_joined_pieces(pieces)
+    spans = [piece.as_tuple() for piece in timeline if piece.duration >= 0.05]
     if len(spans) >= 2:
         tmp = Path(tempfile.mkdtemp(prefix="hookfirst_", dir=str(dest.parent)))
         try:
@@ -504,19 +605,21 @@ def render_vertical_clip(
                 )
                 parts.append(part)
             joined = tmp / "joined.mp4"
-            _concat_copies(parts, joined, timeout)
-            total = max(0.05, sum(b - a for a, b in spans))
+            _concat_xfade(parts, joined, timeline, has_audio=has_audio, timeout=timeout)
+            joined_info = probe_video(joined)
+            total = float(joined_info.get("duration_seconds") or output_duration(timeline) or 0.05)
             return render_vertical_clip(
                 joined,
                 dest,
                 start=0.0,
-                end=total,
+                end=max(0.05, total),
                 srt_path=srt_path,
                 has_audio=has_audio,
                 hook_line=hook_line,
                 hook_file=hook_file,
                 overlays=overlays,
                 pieces=None,
+                hook_until=hook_until,
                 letterbox=False,
                 pad_min=False,
                 picture_top=fitted.y,
@@ -531,6 +634,7 @@ def render_vertical_clip(
     content_top = int(picture_top)
     content_bottom = fitted.bottom if letterbox else content_top + fitted.h
     vf = vertical_vf(crop) if letterbox else "format=yuv420p"
+    vf = f"{vf}{punch_in_chain()}"
     hook_chain = _hook_chain(
         hook_line,
         hook_file=hook_file,

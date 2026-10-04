@@ -50,7 +50,33 @@ def test_ass_styles_are_white_outline_bottom() -> None:
     assert "Arial,52," in bold
     boxed = cues_to_ass(cues, margin_v=420, style="boxed")
     assert "Arial,52," in boxed
+    assert ",1,3,0,2," in classic.split("[Events]")[0]
+    assert ",1,5,1,2," in bold.split("[Events]")[0]
+    assert ",3,4,0,2," in boxed.split("[Events]")[0]
     assert cues_to_ass(cues, margin_v=420, style="unknown") == classic
+
+
+def test_render_vertical_clip_joins_pieces_with_motion(tmp_path: Path) -> None:
+    info = probe_video(FIXTURE)
+    end = max(0.4, float(info["duration_seconds"] or 0.4))
+    mid = max(0.15, end * 0.5)
+    dest = tmp_path / "joined.mp4"
+    render_vertical_clip(
+        FIXTURE,
+        dest,
+        start=0.0,
+        end=end,
+        has_audio=bool(info.get("has_audio")),
+        hook_line="Wait for this",
+        pieces=[(0.0, mid), (mid, end)],
+        hook_until=min(1.6, end),
+        crop=None,
+        pad_min=False,
+    )
+    assert dest.is_file()
+    out = probe_video(dest)
+    assert out["width"] == 1080
+    assert out["height"] == 1920
 
 
 def test_render_vertical_clip_burns_ass(tmp_path: Path) -> None:

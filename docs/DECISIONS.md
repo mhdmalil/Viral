@@ -1,5 +1,16 @@
 # Decisions Log
 
+### 2026-10-05 — Edited joins, hook punch-in, word-by-word captions
+**Context:** Finished clips were hard cuts with static hook type and a full caption line that only recolored the current word. Face 9:16 crop exists but Generate letterboxes with `crop=None`.
+**Decision:** Join kept spans with FFmpeg `xfade` fade (0.22s). A join whose destination is the hook piece uses `zoomin` (0.36s). After the canvas is built, crop-scale punches in 10% over 2s. Hook `drawtext` slides and fades in over 0.4s. ASS events still use classic/bold/boxed style lines; spoken words appear in order and the current word is yellow and slightly larger. Caption output times follow `apply_piece_joins` so they stay lined up with overlaps. Do not call Haar reframe from Generate.
+**Alternatives considered:** Hard concat; a style picker for transitions; karaoke `\k` tags; turning auto-reframe on.
+**Consequences:** Output duration is a little shorter than the sum of source spans. Existing MP4s keep the old look until Generate runs again.
+
+### 2026-09-25 — Tight cuts keep real words; hooks finish the thought
+**Context:** Jump cuts at 0.45s deleted speech Whisper had not timestamped, and the on-screen hook kept a trailing "and" when the 8-word line ran out.
+**Decision:** Remove only a filler token shorter than 0.8s, and only split on a gap longer than 1s. Pad each kept word by 0.1s. Strip a trailing function word from the hook until the last word can stand alone.
+**Alternatives considered:** Turn tight cuts off. Keep the 0.45s gap rule.
+
 ### 2026-09-24 — .env API keys beat leftover process env
 **Context:** Changing `GROQ_API_KEY` in `.env` still called the old Groq account because `load_dotenv(override=False)` kept a Windows/Cursor environment value, and uvicorn never reloads keys.
 **Decision:** Hydrate Groq/Gemini/OpenRouter from project `.env` first. Token files are fallback only. Changing a key still requires a full desktop restart.

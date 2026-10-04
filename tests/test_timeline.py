@@ -28,6 +28,33 @@ def test_tighten_drops_a_long_gap_and_stays_in_order() -> None:
     assert _src(pieces)[0][0] < _src(pieces)[-1][0]
 
 
+def test_tighten_keeps_a_half_second_gap() -> None:
+    from app.services.video.timeline import tighten_pieces
+
+    words = [
+        {"start": 0.0, "end": 2.0, "word": "hello"},
+        {"start": 2.6, "end": 10.0, "word": "world"},
+    ]
+    pieces = tighten_pieces(words, 0.0, 10.0)
+    assert len(pieces) == 1
+    assert pieces[0].src_start == 0.0
+    assert pieces[0].src_end == 10.0
+
+
+def test_tighten_drops_a_short_um() -> None:
+    from app.services.video.timeline import tighten_pieces
+
+    words = [
+        {"start": 0.0, "end": 3.0, "word": "I"},
+        {"start": 3.1, "end": 3.4, "word": "um"},
+        {"start": 3.5, "end": 11.0, "word": "won"},
+    ]
+    pieces = tighten_pieces(words, 0.0, 11.0)
+    assert len(pieces) == 2
+    assert pieces[0].src_end <= 3.2
+    assert pieces[1].src_start >= 3.4
+
+
 def test_tighten_keeps_the_full_span_when_the_tight_cut_is_under_8s() -> None:
     from app.services.video.timeline import tighten_pieces
 
@@ -98,6 +125,11 @@ def test_captions_cover_speech_and_punch_the_last_word() -> None:
     assert "PlayResX: 1080" in ass
     assert "PlayResY: 1920" in ass
     assert "Arial,52," in ass
-    assert r"{\c&H0000FFFF&}wait" in ass
-    assert r"{\c&H0000FFFF&}what" in ass
-    assert r"{\c&H00FFFFFF&}" in ass
+    assert r"{\c&H0000FFFF&" in ass
+    assert "wait" in ass
+    assert "what" in ass
+    wait_line = next(line for line in ass.splitlines() if line.startswith("Dialogue:") and "wait" in line and "what" not in line)
+    what_line = next(line for line in ass.splitlines() if line.startswith("Dialogue:") and "what" in line)
+    assert "what" not in wait_line
+    assert "wait" in what_line
+    assert r"{\c&H00FFFFFF&" in ass

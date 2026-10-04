@@ -48,7 +48,9 @@ from app.services.video.layout import (
     social_placement,
 )
 from app.services.video.timeline import (
+    apply_piece_joins,
     hook_first_pieces,
+    hook_until,
     output_duration,
     pick_cutaway,
     resolve_hook_at,
@@ -410,6 +412,7 @@ def run_generate_job(job_id: int) -> None:
             pieces = tighten_pieces(words, float(row["start"]), float(row["end"]))
             if not pieces:
                 pieces = hook_first_pieces(row["start"], row["end"], None)
+            pieces = apply_piece_joins(pieces)
             spans = [piece.as_tuple() for piece in pieces]
             cutaway = pick_cutaway(scenes, float(row["start"]), float(row["end"]), float(video_duration or 0))
             hook_line = extract_hook_line(
@@ -469,7 +472,8 @@ def run_generate_job(job_id: int) -> None:
                     hook_line=hook_line,
                     hook_file=hook_file,
                     overlays=overlays,
-                    pieces=spans if len(spans) > 1 else None,
+                    pieces=pieces if len(pieces) > 1 else None,
+                    hook_until=hook_until(pieces),
                 )
                 if cutaway is not None:
                     try:
